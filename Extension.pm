@@ -571,6 +571,7 @@ sub _pgp_encrypt {
     my $encrypted = $pgp->encrypt(Data       => $text,
                                   Recipients => "@",
                                   Cipher     => 'CAST5',
+                                  MDC        => 1,
                                   Armour     => 1);
     if (!defined $encrypted) {
         return 'Error during Encryption: ' . $pgp->errstr;
