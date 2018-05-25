@@ -42,9 +42,10 @@ use HTML::Tree;
 
 our $VERSION = '0.5';
 
-use constant SECURE_NONE => 0;
-use constant SECURE_BODY => 1;
-use constant SECURE_ALL  => 2;
+use constant SECURE_NONE    => 0;
+use constant SECURE_BODY    => 1;
+use constant SECURE_HEADERS => 2;
+use constant SECURE_ALL     => 3;
 
 ##############################################################################
 # Creating new columns
@@ -359,7 +360,7 @@ sub mailer_before_send {
             _filter_bug_links($email);
         }
         else {
-            _make_secure($email, $public_key, $is_bugmail && $make_secure == SECURE_ALL, $add_new);
+            _make_secure($email, $public_key, $is_bugmail && $make_secure == SECURE_ALL, $add_new, $is_bugmail && $make_secure == SECURE_ALL);
         }
     }
 }
@@ -412,7 +413,7 @@ sub _should_secure_whine {
 }
 
 sub _make_secure {
-    my ($email, $key, $sanitise_subject, $add_new) = @_;
+    my ($email, $key, $sanitise_subject, $add_new, $sanitise_headers) = @_;
 
     # Add header showing this email has been secured
     $email->header_set('X-Bugzilla-Secure-Email', 'Yes');
@@ -450,6 +451,9 @@ sub _make_secure {
                 my ($part) = @_;
                 if ($sanitise_subject) {
                     _insert_subject($part, $subject);
+                }
+                if ($sanitise_headers) {
+                    _remove_headers($part);
                 }
                 return if $part->parts > 1; # Top-level
                 $to_encrypt .= "--$old_boundary\n" . $part->as_string . "\n";
@@ -490,6 +494,10 @@ sub _make_secure {
             if ($sanitise_subject) {
                 _insert_subject($email, $subject);
             }
+            if ($sanitise_headers) {
+                _remove_headers($email);
+            }
+
             $email->body_set(_pgp_encrypt($pgp, $email->body));
         }
     }
@@ -503,6 +511,10 @@ sub _make_secure {
 
         if ($sanitise_subject) {
             $email->walk_parts(sub { _insert_subject($_[0], $subject) });
+        }
+
+        if ($sanitise_headers) {
+            $email->walk_parts(sub { _remove_headers($_[0]});
         }
 
         my $smime = Crypt::SMIME->new();
@@ -556,6 +568,10 @@ sub _make_secure {
         $subject =~ s/($bug_id\])\s+(.*)$/$1$new (Secure bug $bug_id)/;
         $email->header_set('Subject', $subject);
     }
+
+    if ($sanitise_headers) {
+        _remove_headers($email)
+    }
 }
 
 sub _pgp_encrypt {
@@ -595,6 +611,30 @@ sub _insert_subject {
         my $body = $tree->look_down(qw(_tag body));
         $body->unshift_content(['div', "Subject: $subject"], ['br']);
         _set_body_from_tree($part, $tree);
+    }
+}
+
+sub _remove_headers {
+    my $part = shift;
+    my $leaking_headers = qw{
+        X-Bugzilla-Reason
+        X-Bugzilla-Type
+        X-Bugzilla-Watch-Reason
+        X-Bugzilla-Product
+        X-Bugzilla-Component
+        X-Bugzilla-Version
+        X-Bugzilla-Keywords
+        X-Bugzilla-Severity
+        X-Bugzilla-Who
+        X-Bugzilla-Status
+        X-Bugzilla-Priority
+        X-Bugzilla-Assigned-To
+        X-Bugzilla-Target-Milestone
+        X-Bugzilla-Flags
+        X-Bugzilla-Changed-Fields
+    };
+    foreach my $header_name ($leaking_headers) {
+          $part->header_set($header_name);
     }
 }
 
