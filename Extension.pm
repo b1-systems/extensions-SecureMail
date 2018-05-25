@@ -354,7 +354,7 @@ sub mailer_before_send {
 
         if ($make_secure == SECURE_NONE) {
             # Filter the bug_links in HTML email in case the bugs the links
-            # point are "secured" bugs and the user may not be able to see 
+            # point are "secured" bugs and the user may not be able to see
             # the summaries.
             _filter_bug_links($email);
         }
@@ -440,9 +440,9 @@ sub _make_secure {
             my $old_boundary = $email->{ct}{attributes}{boundary};
             my $to_encrypt = "Content-Type: " . $email->content_type . "\n\n";
 
-            # We need to do some fix up of each part for proper encoding and then 
-            # stringify all parts for encrypting. We have to retain the old 
-            # boundaries as well so that the email client can reconstruct the 
+            # We need to do some fix up of each part for proper encoding and then
+            # stringify all parts for encrypting. We have to retain the old
+            # boundaries as well so that the email client can reconstruct the
             # original message properly.
             $email->walk_parts(\&_fix_encoding);
 
@@ -456,13 +456,13 @@ sub _make_secure {
             });
             $to_encrypt .= "--$old_boundary--";
 
-            # Now create the new properly formatted PGP parts containing the 
-            # encrypted original message 
+            # Now create the new properly formatted PGP parts containing the
+            # encrypted original message
             my @new_parts = (
                 Email::MIME->create(
                     attributes => {
                         content_type => 'application/pgp-encrypted',
-                        encoding     => '7bit', 
+                        encoding     => '7bit',
                     },
                     body => "Version: 1\n",
                 ),
@@ -471,7 +471,7 @@ sub _make_secure {
                         content_type => 'application/octet-stream',
                         filename     => 'encrypted.asc',
                         disposition  => 'inline',
-                        encoding     => '7bit', 
+                        encoding     => '7bit',
                     },
                     body => _pgp_encrypt($pgp, $to_encrypt)
                 ),
@@ -480,9 +480,9 @@ sub _make_secure {
             my $new_boundary = $email->{ct}{attributes}{boundary};
             # Redo the old content type header with the new boundaries
             # and other information needed for PGP
-            $email->header_set("Content-Type", 
+            $email->header_set("Content-Type",
                                "multipart/encrypted; " .
-                               "protocol=\"application/pgp-encrypted\"; " . 
+                               "protocol=\"application/pgp-encrypted\"; " .
                                "boundary=\"$new_boundary\"");
         }
         else {
